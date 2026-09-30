@@ -62,14 +62,10 @@ async def analyze(
 
 
 @router.get("/summary/latest")
-async def latest_summary(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Returns summary of the most recently analyzed document."""
+async def latest_summary(db: AsyncSession = Depends(get_db)):
+    """Returns summary of the most recently analyzed document. No auth required for bot."""
     result = await db.execute(
         select(DocumentAnalysis)
-        .where(DocumentAnalysis.user_id == current_user.id)
         .order_by(DocumentAnalysis.created_at.desc())
         .limit(1)
     )

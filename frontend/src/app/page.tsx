@@ -120,8 +120,40 @@ export default function Home() {
         </div>
 
         {/* Channels strip */}
-        <div className="mt-12 text-center text-xs text-slate-400 space-y-1">
-          <p>Available on: Web · Telegram · WhatsApp · IVR (Voice Call)</p>
+        <div className="mt-14">
+          <p className="text-center text-sm font-semibold text-slate-600 mb-2">Also available on</p>
+          <p className="text-center text-xs text-slate-400 mb-6">Use ArthSathi on your phone without the web app</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <a href="https://t.me/arthsathi_demo_bot" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500 flex items-center justify-center text-2xl shrink-0 shadow group-hover:scale-105 transition-transform">✈️</div>
+              <div>
+                <p className="font-bold text-blue-900 text-sm">Telegram Bot</p>
+                <p className="text-xs text-blue-600">@arthsathi_demo_bot</p>
+                <p className="text-xs text-blue-700 mt-1">Schemes · Roadmap · Documents</p>
+              </div>
+            </a>
+            <a href="https://wa.me/14155238886" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-2xl border-2 border-green-200 bg-green-50 hover:bg-green-100 hover:border-green-400 transition-all group">
+              <div className="w-12 h-12 rounded-2xl bg-green-500 flex items-center justify-center text-2xl shrink-0 shadow group-hover:scale-105 transition-transform">💬</div>
+              <div>
+                <p className="font-bold text-green-900 text-sm">WhatsApp Bot</p>
+                <p className="text-xs text-green-600">+1 415 523 8886</p>
+                <p className="text-xs text-green-700 mt-1">Send any document to analyze</p>
+              </div>
+            </a>
+            <div className="flex items-center gap-4 p-4 rounded-2xl border-2 border-purple-200 bg-purple-50">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500 flex items-center justify-center text-2xl shrink-0 shadow">📞</div>
+              <div>
+                <p className="font-bold text-purple-900 text-sm">IVR Voice Call</p>
+                <p className="text-xs text-purple-600">Feature phones supported</p>
+                <p className="text-xs text-purple-700 mt-1">No smartphone needed</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center text-xs text-slate-400">
           <p>Languages: हिंदी · मराठी · English</p>
         </div>
       </div>

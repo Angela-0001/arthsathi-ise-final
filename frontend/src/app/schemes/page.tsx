@@ -17,6 +17,137 @@ export default function SchemesPage() {
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    api.get("/schemes/match?lang=en")
+      .then(r => setSchemes(r.data))
+      .catch(() => setError("Could not load schemes. Make sure you are logged in."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = schemes.filter(s => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (s.translated_name || s.name || "").toLowerCase().includes(q) ||
+      (s.translated_description || "").toLowerCase().includes(q) ||
+      (s.category || "").toLowerCase().includes(q) ||
+      (s.ministry || "").toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Eligible Schemes</h1>
+        <p className="text-slate-500 text-sm mt-1">आपके लिए योजनाएँ — based on your profile</p>
+      </div>
+
+      {/* Search */}
+      {!loading && !error && schemes.length > 0 && (
+        <div className="mb-6">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search schemes by name, category, ministry..."
+              className="input-field pl-9"
+              aria-label="Search schemes"
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-2">{filtered.length} of {schemes.length} schemes</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="card animate-pulse">
+              <div className="h-4 bg-slate-100 rounded w-1/3 mb-3" />
+              <div className="h-3 bg-slate-100 rounded w-full mb-2" />
+              <div className="h-3 bg-slate-100 rounded w-2/3" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="card border-red-200 bg-red-50 text-red-600 text-sm">{error}</div>
+      )}
+
+      {!loading && !error && schemes.length === 0 && (
+        <div className="card text-center py-14">
+          <p className="font-semibold text-slate-800 mb-1">No schemes found</p>
+          <p className="text-slate-500 text-sm mb-4">Complete your profile with age, income, occupation and state to see eligible schemes.</p>
+          <a href="/profile" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+            Complete Profile →
+          </a>
+        </div>
+      )}
+
+      {!loading && !error && filtered.length === 0 && schemes.length > 0 && (
+        <div className="card text-center py-8">
+          <p className="text-slate-500 text-sm">No schemes match your search.</p>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {filtered.map((s) => (
+          <div key={s.scheme_id} className="card hover:shadow-card-hover hover:border-blue-200 transition-all">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {s.category && <span className="badge badge-blue">{s.category}</span>}
+                  {s.ministry && <span className="badge badge-slate text-xs">{s.ministry}</span>}
+                </div>
+                <h2 className="font-bold text-slate-900 text-base mb-1">{s.translated_name || s.name}</h2>
+                <p className="text-slate-500 text-sm leading-relaxed line-clamp-2">{s.translated_description}</p>
+              </div>
+              {s.benefit_value && (
+                <div className="shrink-0 bg-green-50 border border-green-200 rounded-xl px-3 py-2 text-right">
+                  <p className="text-xs text-green-600 font-medium">Benefit</p>
+                  <p className="text-green-700 font-bold text-lg">₹{s.benefit_value.toLocaleString("en-IN")}</p>
+                </div>
+              )}
+            </div>
+            {s.application_url && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <a href={s.application_url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                  Apply on myScheme
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface Scheme {
+  scheme_id: string;
+  name: string;
+  translated_name: string;
+  translated_description: string;
+  benefit_value: number | null;
+  application_url: string | null;
+  ministry: string | null;
+  category: string | null;
+}
+
+export default function SchemesPage() {
+  const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.get("/schemes/match?lang=en")
