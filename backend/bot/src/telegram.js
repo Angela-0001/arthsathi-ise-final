@@ -5,6 +5,8 @@ import { sendToBackend } from "./gateway.js";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
+const WELCOME = `🙏 नमस्ते! ArthSathi में आपका स्वागत है।\n\nHello! I'm ArthSathi. Type:\n1️⃣ *1* — Government Schemes\n2️⃣ *2* — Financial Roadmap\n3️⃣ *3* — Analyze a Document\n\nOr send a photo/PDF of any document to check for risky clauses.`;
+
 export function startTelegramBot() {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
@@ -14,96 +16,34 @@ export function startTelegramBot() {
 
   const bot = new Bot(token);
 
-  // ── Commands ──────────────────────────────────────────────────────────────
+  // /start
+  bot.command("start", (ctx) => ctx.reply(WELCOME, { parse_mode: "Markdown" }));
 
-  bot.command("start", (ctx) =>
-    ctx.reply(
-      "🙏 *नमस्ते! मैं ArthSathi हूँ।*\n\n" +
-      "Hello! I'm ArthSathi — your financial companion.\n\n" +
-      "*Commands:*\n" +
-      "📋 /schemes — Eligible government schemes\n" +
-      "🗺️ /roadmap — Financial roadmap\n" +
-      "📄 /summary — Summary of last document\n" +
-      "❓ /help — Show all commands\n\n" +
-      "Or just *send a photo/PDF* of any document to analyze it for risky clauses.",
-      { parse_mode: "Markdown" }
-    )
-  );
-
-  bot.command("help", (ctx) =>
-    ctx.reply(
-      "*ArthSathi Commands:*\n\n" +
-      "📋 /schemes — Find government schemes you qualify for\n" +
-      "🗺️ /roadmap — Get a personalised financial plan\n" +
-      "📄 /summary — Get summary of your last document analysis\n" +
-      "📸 Send photo/PDF — Analyze document for risky clauses\n" +
-      "🎙️ Send voice note — Ask anything by voice\n\n" +
-      "*Type a number to quick-access:*\n" +
-      "1 → Schemes  2 → Roadmap  3 → Document help",
-      { parse_mode: "Markdown" }
-    )
-  );
-
+  // /schemes
   bot.command("schemes", async (ctx) => {
-    const msg = await ctx.reply("🔍 Finding eligible schemes for you...");
+    await ctx.reply("⏳ Fetching eligible schemes...");
     const result = await sendToBackend({
       user_id: String(ctx.from.id),
       channel: "telegram",
       intent: "scheme_match",
       detected_language: "hi",
     });
-    await ctx.api.editMessageText(ctx.chat.id, msg.message_id,
-      result.text_response || "No schemes found. Complete your profile first.",
-      { parse_mode: "Markdown" }
-    ).catch(() => ctx.reply(result.text_response || "No schemes found."));
+    await ctx.reply(result.text_response || "No schemes found. Please complete your profile on the web app first.");
   });
 
+  // /roadmap
   bot.command("roadmap", async (ctx) => {
-    const msg = await ctx.reply("📊 Building your financial roadmap...");
+    await ctx.reply("⏳ Building your financial roadmap...");
     const result = await sendToBackend({
       user_id: String(ctx.from.id),
       channel: "telegram",
       intent: "financial_roadmap",
       detected_language: "hi",
     });
-    await ctx.api.editMessageText(ctx.chat.id, msg.message_id,
-      result.text_response || "Could not generate roadmap.",
-      { parse_mode: "Markdown" }
-    ).catch(() => ctx.reply(result.text_response || "Could not generate roadmap."));
+    await ctx.reply(result.text_response || "Could not generate roadmap. Please complete your profile first.");
   });
 
-  bot.command("summary", async (ctx) => {
-    try {
-      const resp = await axios.get(`${BACKEND_URL}/documents/summary/latest`, { timeout: 10000 });
-      const data = resp.data;
-
-      if (data.message) {
-        return ctx.reply("📭 " + data.message);
-      }
-
-      const flags = data.risk_flags || [];
-      const high   = flags.filter(f => f.risk_level === "high").length;
-      const medium = flags.filter(f => f.risk_level === "medium").length;
-
-      let reply = `📋 *Last Document Summary*\n\n${data.summary}\n\n`;
-      reply += `🔴 High: ${high}  🟡 Medium: ${medium}  📅 ${new Date(data.analyzed_at).toLocaleDateString()}`;
-
-      if (flags.length > 0) {
-        reply += "\n\n*Top Risk Clauses:*\n";
-        flags.slice(0, 3).forEach(f => {
-          const emoji = f.risk_level === "high" ? "🔴" : f.risk_level === "medium" ? "🟡" : "🔵";
-          reply += `${emoji} ${f.explanation}\n`;
-        });
-      }
-
-      await ctx.reply(reply, { parse_mode: "Markdown" });
-    } catch {
-      ctx.reply("Could not fetch summary. Send a document first to analyze it.");
-    }
-  });
-
-  // ── Voice notes ────────────────────────────────────────────────────────────
-
+  // Voice note
   bot.on("message:voice", async (ctx) => {
     await ctx.reply("🎙️ Processing your voice message...");
     const file = await ctx.getFile();
@@ -114,110 +54,120 @@ export function startTelegramBot() {
       audio_url,
       detected_language: "hi",
     });
-    await ctx.reply(result.text_response || "Sorry, could not process audio. Please type your question.");
+    await ctx.reply(result.text_response || "Sorry, could not process audio.");
   });
 
-  // ── Photos and documents ───────────────────────────────────────────────────
-
+  // Photo or document file → risk analysis
   bot.on(["message:photo", "message:document"], async (ctx) => {
-    const msg = await ctx.reply("📄 Analyzing your document for risky clauses...");
-
+    await ctx.reply("📄 Analyzing document for risky clauses...");
     try {
-      let fileId, fileName, contentType;
+      let fileId, contentType, filename;
 
       if (ctx.message.photo) {
-        fileId      = ctx.message.photo[ctx.message.photo.length - 1].file_id;
-        fileName    = "document.jpg";
+        fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
         contentType = "image/jpeg";
+        filename = "photo.jpg";
       } else {
-        fileId      = ctx.message.document.file_id;
-        fileName    = ctx.message.document.file_name || "document";
-        contentType = ctx.message.document.mime_type || "image/jpeg";
+        fileId = ctx.message.document.file_id;
+        const mime = ctx.message.document.mime_type || "image/jpeg";
+        contentType = mime;
+        filename = ctx.message.document.file_name || "document";
       }
 
-      const fileResp = await axios.get(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
-      const filePath = fileResp.data.result.file_path;
-      const fileUrl  = `https://api.telegram.org/file/bot${token}/${filePath}`;
+      // Get file download URL via Telegram API
+      const fileInfoResp = await axios.get(
+        `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`,
+        { timeout: 10000 }
+      );
+      const filePath = fileInfoResp.data.result.file_path;
+      const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
 
-      const fileData = await axios.get(fileUrl, { responseType: "arraybuffer" });
-      const fileBuffer = Buffer.from(fileData.data);
+      // Download the file as buffer
+      const downloadResp = await axios.get(fileUrl, {
+        responseType: "arraybuffer",
+        timeout: 20000,
+      });
+      const fileBuffer = Buffer.from(downloadResp.data);
 
+      // POST multipart to backend
       const form = new FormData();
-      form.append("file", fileBuffer, { filename: fileName, contentType });
+      form.append("file", fileBuffer, { filename, contentType });
 
       const resp = await axios.post(
-        `${BACKEND_URL}/documents/analyze?lang=en`,
+        `${BACKEND_URL}/documents/analyze?lang=hi`,
         form,
         { headers: form.getHeaders(), timeout: 60000 }
       );
 
-      const data  = resp.data;
+      const data = resp.data;
       const flags = data.risk_flags || [];
-      const high   = flags.filter(f => f.risk_level === "high").length;
+      const high = flags.filter(f => f.risk_level === "high").length;
       const medium = flags.filter(f => f.risk_level === "medium").length;
-      const low    = flags.filter(f => f.risk_level === "low").length;
+      const low = flags.filter(f => f.risk_level === "low").length;
 
-      let reply = `📋 *Document Analysis*\n\n`;
-      reply += `${data.summary}\n\n`;
+      let reply = `📋 *Analysis Summary*\n${data.summary}\n`;
+      reply += `\n🔴 High: ${high}  🟡 Medium: ${medium}  🔵 Low: ${low}\n`;
 
       if (flags.length > 0) {
-        reply += `*Risk Summary:* 🔴 ${high} High  🟡 ${medium} Medium  🔵 ${low} Low\n\n`;
-        reply += `*Clauses Found:*\n`;
+        reply += `\n*Detected Clauses:*\n`;
         flags.slice(0, 6).forEach(f => {
           const emoji = f.risk_level === "high" ? "🔴" : f.risk_level === "medium" ? "🟡" : "🔵";
-          reply += `${emoji} ${f.explanation}\n`;
+          reply += `\n${emoji} *${f.risk_level.toUpperCase()}*\n_${f.clause_text}_\n${f.explanation}\n`;
         });
-        if (flags.length > 6) reply += `\n_...and ${flags.length - 6} more. Use /summary to see all._`;
       } else {
-        reply += "✅ No risky clauses detected.";
+        reply += "\n✅ No risky clauses detected.";
       }
 
-      reply += "\n\n_Use /summary to see this analysis again._";
-
-      await ctx.api.editMessageText(ctx.chat.id, msg.message_id, reply, { parse_mode: "Markdown" })
-        .catch(() => ctx.reply(reply, { parse_mode: "Markdown" }));
+      await ctx.reply(reply, { parse_mode: "Markdown" });
 
     } catch (err) {
       console.error("[Telegram] Document error:", err.response?.data || err.message);
-      await ctx.api.editMessageText(ctx.chat.id, msg.message_id,
-        "❌ Could not analyze document. Please try a clearer image or a typed PDF."
-      ).catch(() => {});
+      await ctx.reply("❌ Could not analyze document. Please send a clearer image or try a PDF.");
     }
   });
 
-  // ── Plain text ─────────────────────────────────────────────────────────────
-
+  // Plain text — number shortcuts + general
   bot.on("message:text", async (ctx) => {
     const text = ctx.message.text.trim();
 
-    // Number shortcuts
-    const shortcuts = {
-      "1": "scheme_match",
-      "2": "financial_roadmap",
-      "3": "document_analysis",
-    };
-
-    if (shortcuts[text]) {
-      if (text === "3") return ctx.reply("📸 Please send a photo or PDF of your document to analyze it.");
+    if (text === "1") {
+      ctx.message.text = "/schemes";
+      await ctx.reply("⏳ Fetching eligible schemes...");
       const result = await sendToBackend({
         user_id: String(ctx.from.id),
         channel: "telegram",
-        intent: shortcuts[text],
+        intent: "scheme_match",
         detected_language: "hi",
       });
-      return ctx.reply(result.text_response || "Could not get response.", { parse_mode: "Markdown" });
+      return ctx.reply(result.text_response || "No schemes found. Complete your profile on the web app first.");
     }
 
+    if (text === "2") {
+      await ctx.reply("⏳ Building your financial roadmap...");
+      const result = await sendToBackend({
+        user_id: String(ctx.from.id),
+        channel: "telegram",
+        intent: "financial_roadmap",
+        detected_language: "hi",
+      });
+      return ctx.reply(result.text_response || "Could not generate roadmap.");
+    }
+
+    if (text === "3") {
+      return ctx.reply("📸 Please send a photo or PDF of the document you want to analyze.");
+    }
+
+    // General message
     const result = await sendToBackend({
       user_id: String(ctx.from.id),
       channel: "telegram",
       raw_text: text,
       detected_language: "hi",
     });
-    await ctx.reply(result.text_response || "Sorry, I didn't understand that. Type /help for options.");
+    await ctx.reply(result.text_response || WELCOME, { parse_mode: "Markdown" });
   });
 
-  bot.catch((err) => console.error("[Telegram] Error:", err.message));
+  bot.catch((err) => console.error("[Telegram] Error:", err));
   bot.start();
   console.log("[Telegram] Bot started");
 }

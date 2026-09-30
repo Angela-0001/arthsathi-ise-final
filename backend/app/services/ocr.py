@@ -37,7 +37,9 @@ def _extract_image(image_bytes: bytes, lang: str) -> str:
         except Exception:
             text = pytesseract.image_to_string(image, lang="eng")
 
-        return text.strip()
+        result = text.strip()
+        print(f"[OCR] Extracted {len(result)} chars from image")
+        return result
 
     except Exception as e:
         print(f"[OCR] Image error: {e}")
