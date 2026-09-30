@@ -1,0 +1,3 @@
+# Place domain corpus files here:
+# domain_corpus.jsonl  — fine-tuning data {"src", "tgt", "src_lang", "tgt_lang"}
+# test_legal.jsonl     — held-out evaluation set (IN22-Web legal subset)
