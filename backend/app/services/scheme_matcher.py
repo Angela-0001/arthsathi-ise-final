@@ -43,11 +43,15 @@ def _get_recommender():
 async def match_for_user(user: User, db: AsyncSession, lang: str) -> List[SchemeOut]:
     recommender = _get_recommender()
 
-    if recommender:
-        # Use ML recommender
+    if recommender and (user.age or user.occupation or user.monthly_income):
+        # Use ML recommender only if user has some profile data
         profile = _user_to_profile(user)
         results = recommender.recommend(profile, top_k=20)
-        return [_ml_result_to_out(r) for r in results]
+        if results:
+            return [_ml_result_to_out(r) for r in results]
+
+    # Fallback to DB match
+    return await _db_match(user, db, lang)
     else:
         # Fallback: DB rule-based
         return await _db_match(user, db, lang)
@@ -125,13 +129,21 @@ def _ml_result_to_out(r: dict) -> SchemeOut:
 async def _db_match(user: User, db: AsyncSession, lang: str) -> List[SchemeOut]:
     result = await db.execute(select(Scheme).where(Scheme.is_active == True))
     all_schemes = result.scalars().all()
-    # If user has no profile data, skip eligibility filter and return all schemes ranked
-    if not user.age and not user.monthly_income and not user.occupation:
-        ranked = sorted(all_schemes, key=lambda s: s.engagement_weight * (s.benefit_value or 1), reverse=True)
-    else:
+    # Always show all schemes ranked by engagement — eligibility filter only if profile is complete
+    if user.age and user.monthly_income and user.occupation:
         eligible = [s for s in all_schemes if _is_eligible(user, s)]
         ranked = sorted(eligible, key=lambda s: s.engagement_weight * (s.benefit_value or 1), reverse=True)
+    else:
+        ranked = sorted(all_schemes, key=lambda s: s.engagement_weight * (s.benefit_value or 1), reverse=True)
     return [await _db_scheme_to_out(s, lang) for s in ranked[:20]]
+
+
+async def _db_match_anonymous(db: AsyncSession) -> List[SchemeOut]:
+    """Return top schemes for users without a profile."""
+    result = await db.execute(select(Scheme).where(Scheme.is_active == True))
+    all_schemes = result.scalars().all()
+    ranked = sorted(all_schemes, key=lambda s: s.engagement_weight * (s.benefit_value or 1), reverse=True)
+    return [await _db_scheme_to_out(s, "en") for s in ranked[:5]]
 
 
 def _is_eligible(user: User, scheme: Scheme) -> bool:

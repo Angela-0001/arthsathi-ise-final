@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const links = [
   {
@@ -27,6 +28,12 @@ const links = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setLoggedIn(!!localStorage.getItem("arthsathi_token"));
+  }, [pathname]);
+
   if (pathname === "/login") return null;
 
   return (
@@ -62,8 +69,26 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="px-4 py-3 border-t border-slate-800">
-        <p className="text-[10px] text-slate-600">हिंदी · मराठी · English</p>
+      <div className="px-3 py-3 border-t border-slate-800 space-y-2">
+        {loggedIn ? (
+          <button
+            onClick={() => { localStorage.removeItem("arthsathi_token"); setLoggedIn(false); window.location.href = "/login"; }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign out
+          </button>
+        ) : (
+          <Link href="/login"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Sign in
+          </Link>
+        )}
+        <p className="text-[10px] text-slate-600 px-1">हिंदी · मराठी · English</p>
       </div>
     </aside>
   );

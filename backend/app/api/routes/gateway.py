@@ -79,19 +79,24 @@ async def _dispatch(msg: NormalizedMessage, text_en: str, db: AsyncSession) -> s
     # Try to get user from DB
     user = await _get_user(msg.user_id, db)
 
-    if msg.intent == Intent.scheme_match and user:
-        results = await scheme_matcher.match_for_user(user, db, "en")
+    if msg.intent == Intent.scheme_match:
+        if user:
+            results = await scheme_matcher.match_for_user(user, db, "en")
+        else:
+            # No profile — show top schemes from DB
+            results = await scheme_matcher._db_match_anonymous(db)
         if not results:
-            return "No eligible schemes found. Please complete your profile first."
-        top = results[:3]
-        lines = [f"{i+1}. {s.name}: {s.translated_description or s.description}"
-                 for i, s in enumerate(top)]
-        return "Top schemes for you:\n" + "\n".join(lines)
+            return "No schemes found. Please complete your profile on the web app for personalised results."
+        top = results[:5]
+        lines = [f"{i+1}. {s.name}" for i, s in enumerate(top)]
+        return "📋 Top Government Schemes:\n\n" + "\n".join(lines) + "\n\nVisit the web app to see your eligible schemes."
 
-    if msg.intent == Intent.financial_roadmap and user:
-        roadmap = await roadmap_engine.generate(user)
-        lines = [f"{s.priority}. {s.action}" for s in roadmap.steps[:4]]
-        return roadmap.summary + "\n\n" + "\n".join(lines)
+    if msg.intent == Intent.financial_roadmap:
+        if user:
+            roadmap = await roadmap_engine.generate(user)
+            lines = [f"{s.priority}. {s.action}" for s in roadmap.steps[:4]]
+            return roadmap.summary + "\n\n" + "\n".join(lines)
+        return "🗺️ To get your personalised financial roadmap, please complete your profile on the web app first.\n\nVisit: http://localhost:3000/profile"
 
     if msg.intent == Intent.document_analysis:
         return "Please upload a photo of your document for analysis."
